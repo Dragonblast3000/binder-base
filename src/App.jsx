@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Search, Plus, Trash2, ChevronLeft, ChevronRight, X, Printer, BookOpen, Settings, ArrowLeft, Layers, Loader2, Wand2, Copy, GripVertical, Sun, Moon, Download, Upload } from "lucide-react";
+import { Search, Plus, Trash2, ChevronLeft, ChevronRight, X, Printer, BookOpen, Settings, ArrowLeft, Layers, Loader2, Wand2, Copy, GripVertical, Sun, Moon, Download, Upload, Heart } from "lucide-react";
 
 /* ════════════════════════════════════════════════════════════════════
    DATA LAYER — tries bundled /cards.json first (full offline DB),
@@ -55,6 +55,35 @@ async function searchCards(term) {
 }
 
 const imgUrl = (id) => `https://images.ygoprodeck.com/images/cards_small/${id}.jpg`;
+
+/* ════════════════════════════════════════════════════════════════════
+   SUPPORT LINK — change KOFI_URL if you ever move platforms.
+   ════════════════════════════════════════════════════════════════════ */
+const KOFI_URL = "https://ko-fi.com/binderbase";
+
+function SupportLink({ isMobile, variant = "header" }) {
+  if (variant === "inline") {
+    // Plain text inline link, used in empty-library copy.
+    return (
+      <a href={KOFI_URL} target="_blank" rel="noopener noreferrer"
+        style={{ color: "var(--accent)", textDecoration: "underline", cursor: "pointer" }}>
+        support the project
+      </a>
+    );
+  }
+  // Header button — icon-only on mobile, icon + label on desktop.
+  return (
+    <a href={KOFI_URL} target="_blank" rel="noopener noreferrer" title="Support Binder Base on Ko-fi"
+      className="ygo-btn"
+      style={isMobile
+        ? { ...iconBtn, textDecoration: "none", color: "var(--accent)" }
+        : { ...ghostBtn, display: "flex", alignItems: "center", gap: 6, padding: "9px 13px", textDecoration: "none", color: "var(--accent)" }
+      }>
+      <Heart size={isMobile ? 17 : 15} fill="var(--accent)" />
+      {!isMobile && "Support"}
+    </a>
+  );
+}
 
 /* ════════════════════════════════════════════════════════════════════
    AUTO-ORGANISE
@@ -303,6 +332,7 @@ function Library({ binders, onOpen, onCreate, onDelete, onImport, isMobile, them
         <div style={{ display: "flex", gap: 6, flexWrap: "nowrap", flexShrink: 0 }}>
           {isMobile ? (
             <>
+              <SupportLink isMobile={isMobile} />
               <button className="ygo-btn" onClick={() => fileRef.current?.click()} title="Import a binder file" style={iconBtn}><Upload size={17} /></button>
               {binders.length > 0 && (
                 <button className="ygo-btn" onClick={() => exportAll(binders)} title="Export all binders to one file" style={iconBtn}><Download size={17} /></button>
@@ -312,6 +342,7 @@ function Library({ binders, onOpen, onCreate, onDelete, onImport, isMobile, them
             </>
           ) : (
             <>
+              <SupportLink isMobile={isMobile} />
               <button className="ygo-btn" onClick={() => fileRef.current?.click()} title="Import a binder file" style={{ ...ghostBtn, display: "flex", alignItems: "center", gap: 6, padding: "9px 13px" }}>
                 <Upload size={15} /> Import
               </button>
@@ -361,6 +392,11 @@ function Library({ binders, onOpen, onCreate, onDelete, onImport, isMobile, them
             );
           })}
         </div>
+      )}
+      {binders.length > 0 && (
+        <p style={{ textAlign: "center", color: "var(--sub)", fontSize: 12.5, marginTop: 32, marginBottom: 0, lineHeight: 1.6 }}>
+          Binder Base is free and ad-free. If you find it useful, you can <SupportLink variant="inline" /> ♥
+        </p>
       )}
       {creating && <CreateModal isMobile={isMobile} onClose={() => setCreating(false)} onCreate={(b) => { onCreate(b); setCreating(false); }} />}
     </div>
