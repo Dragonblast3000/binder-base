@@ -300,19 +300,32 @@ function Library({ binders, onOpen, onCreate, onDelete, onImport, isMobile, them
           <Layers size={isMobile ? 22 : 26} color="var(--accent)" />
           <h1 style={{ margin: 0, fontSize: isMobile ? 22 : 26, letterSpacing: 0.5, fontWeight: 600 }}>Binder Base</h1>
         </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button className="ygo-btn" onClick={() => fileRef.current?.click()} title="Import a binder file" style={{ ...ghostBtn, display: "flex", alignItems: "center", gap: 6, padding: "9px 13px" }}>
-            <Upload size={15} /> {!isMobile && "Import"}
-          </button>
-          {binders.length > 0 && (
-            <button className="ygo-btn" onClick={() => exportAll(binders)} title="Export all binders to one file" style={{ ...ghostBtn, display: "flex", alignItems: "center", gap: 6, padding: "9px 13px" }}>
-              <Download size={15} /> {!isMobile && "Export all"}
-            </button>
+        <div style={{ display: "flex", gap: 6, flexWrap: "nowrap", flexShrink: 0 }}>
+          {isMobile ? (
+            <>
+              <button className="ygo-btn" onClick={() => fileRef.current?.click()} title="Import a binder file" style={iconBtn}><Upload size={17} /></button>
+              {binders.length > 0 && (
+                <button className="ygo-btn" onClick={() => exportAll(binders)} title="Export all binders to one file" style={iconBtn}><Download size={17} /></button>
+              )}
+              <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+              <button className="ygo-btn" onClick={() => setCreating(true)} title="New binder" style={{ ...iconBtnPrimary }}><Plus size={18} /></button>
+            </>
+          ) : (
+            <>
+              <button className="ygo-btn" onClick={() => fileRef.current?.click()} title="Import a binder file" style={{ ...ghostBtn, display: "flex", alignItems: "center", gap: 6, padding: "9px 13px" }}>
+                <Upload size={15} /> Import
+              </button>
+              {binders.length > 0 && (
+                <button className="ygo-btn" onClick={() => exportAll(binders)} title="Export all binders to one file" style={{ ...ghostBtn, display: "flex", alignItems: "center", gap: 6, padding: "9px 13px" }}>
+                  <Download size={15} /> Export all
+                </button>
+              )}
+              <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+              <button className="ygo-btn" onClick={() => setCreating(true)} style={{ ...primaryBtn, display: "flex", alignItems: "center", gap: 7 }}>
+                <Plus size={17} /> New binder
+              </button>
+            </>
           )}
-          <ThemeToggle theme={theme} onToggle={onToggleTheme} />
-          <button className="ygo-btn" onClick={() => setCreating(true)} style={{ ...primaryBtn, display: "flex", alignItems: "center", gap: 7 }}>
-            <Plus size={17} /> {!isMobile && "New binder"}
-          </button>
         </div>
       </div>
       <p style={{ color: "var(--sub)", marginTop: 4, marginBottom: 26, fontSize: 14 }}>Design your card layouts, then print cut-out placeholders for the real thing.</p>
@@ -440,20 +453,40 @@ function BinderView({ binder, onBack, onUpdate, isMobile, theme, onToggleTheme }
 
   return (
     <div>
-      {/* Header — stacks on mobile */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: isMobile ? "12px 14px" : "16px 24px", borderBottom: `1px solid var(--border)`, background: "var(--panel)", flexWrap: "wrap", gap: 10 }}>
+      {/* Header — on mobile: title row + scrollable action row, all icons uniform */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: isMobile ? "10px 12px" : "16px 24px", borderBottom: `1px solid var(--border)`, background: "var(--panel)", flexWrap: "wrap", gap: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 14, minWidth: 0, flex: isMobile ? "1 1 100%" : "0 1 auto" }}>
-          <button className="ygo-btn" onClick={onBack} style={{ background: "transparent", border: "none", color: "var(--text)", display: "flex", alignItems: "center", gap: 5, fontFamily: font, fontSize: 14 }}><ArrowLeft size={18} /> {isMobile ? "" : "Library"}</button>
-          <div style={{ width: 1, height: 22, background: "var(--border)" }} />
-          <h2 style={{ margin: 0, fontSize: isMobile ? 16 : 18, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{binder.name}</h2>
+          <button className="ygo-btn" onClick={onBack} style={{ background: "transparent", border: "none", color: "var(--text)", display: "flex", alignItems: "center", gap: 5, fontFamily: font, fontSize: 14, padding: "4px 4px 4px 0", flex: "0 0 auto" }}><ArrowLeft size={18} /> {isMobile ? "" : "Library"}</button>
+          <div style={{ width: 1, height: 22, background: "var(--border)", flex: "0 0 auto" }} />
+          <h2 style={{ margin: 0, fontSize: isMobile ? 16 : 18, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0, flex: "1 1 auto" }}>{binder.name}</h2>
           <span style={{ color: "var(--sub)", fontSize: 13, flex: "0 0 auto" }}>{layout.label}</span>
         </div>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: isMobile ? "flex-end" : "flex-start", flex: isMobile ? "1 1 100%" : "0 1 auto" }}>
-          <button className="ygo-btn" onClick={() => setPicker(true)} style={{ ...ghostBtn, display: "flex", alignItems: "center", gap: 6, padding: "9px 13px" }}><Plus size={16} /> {!isMobile && "Add cards"}</button>
-          <button className="ygo-btn" onClick={() => setShowOrganise(true)} style={{ ...ghostBtn, display: "flex", alignItems: "center", gap: 6, padding: "9px 13px" }}><Wand2 size={16} /> {!isMobile && "Auto-organise"}</button>
-          <ThemeToggle theme={theme} onToggle={onToggleTheme} />
-          <button className="ygo-btn" onClick={() => setShowSettings(true)} style={iconBtn}><Settings size={17} /></button>
-          <button className="ygo-btn" onClick={() => setShowPrint(true)} style={{ ...primaryBtn, display: "flex", alignItems: "center", gap: 7, padding: "9px 15px" }}><Printer size={16} /> {!isMobile && "Print"}</button>
+        <div className="ygo-scroll" style={{
+          display: "flex",
+          gap: 6,
+          flexWrap: "nowrap",
+          flex: isMobile ? "1 1 100%" : "0 1 auto",
+          justifyContent: isMobile ? "flex-start" : "flex-start",
+          overflowX: isMobile ? "auto" : "visible",
+          paddingBottom: isMobile ? 2 : 0,
+        }}>
+          {isMobile ? (
+            <>
+              <button className="ygo-btn" onClick={() => setPicker(true)} title="Add cards" style={{ ...iconBtnPrimary, flex: "0 0 auto" }}><Plus size={18} /></button>
+              <button className="ygo-btn" onClick={() => setShowOrganise(true)} title="Auto-organise" style={{ ...iconBtn, flex: "0 0 auto" }}><Wand2 size={17} /></button>
+              <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+              <button className="ygo-btn" onClick={() => setShowSettings(true)} title="Binder settings" style={{ ...iconBtn, flex: "0 0 auto" }}><Settings size={17} /></button>
+              <button className="ygo-btn" onClick={() => setShowPrint(true)} title="Print / export" style={{ ...iconBtn, flex: "0 0 auto" }}><Printer size={17} /></button>
+            </>
+          ) : (
+            <>
+              <button className="ygo-btn" onClick={() => setPicker(true)} style={{ ...ghostBtn, display: "flex", alignItems: "center", gap: 6, padding: "9px 13px" }}><Plus size={16} /> Add cards</button>
+              <button className="ygo-btn" onClick={() => setShowOrganise(true)} style={{ ...ghostBtn, display: "flex", alignItems: "center", gap: 6, padding: "9px 13px" }}><Wand2 size={16} /> Auto-organise</button>
+              <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+              <button className="ygo-btn" onClick={() => setShowSettings(true)} style={iconBtn}><Settings size={17} /></button>
+              <button className="ygo-btn" onClick={() => setShowPrint(true)} style={{ ...primaryBtn, display: "flex", alignItems: "center", gap: 7, padding: "9px 15px" }}><Printer size={16} /> Print</button>
+            </>
+          )}
         </div>
       </div>
 
@@ -767,5 +800,6 @@ const inputStyle = { width: "100%", boxSizing: "border-box", background: "var(--
 const primaryBtn = { background: "var(--accent)", color: "var(--accent-fg)", border: "none", borderRadius: 9, padding: "10px 18px", fontWeight: 700, fontSize: 14, fontFamily: font, cursor: "pointer" };
 const ghostBtn = { background: "transparent", color: "var(--text)", border: `1px solid var(--border)`, borderRadius: 9, padding: "10px 16px", fontWeight: 600, fontSize: 14, fontFamily: font, cursor: "pointer" };
 const iconBtn = { background: "var(--panel2)", color: "var(--text)", border: `1px solid var(--border)`, borderRadius: 9, width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" };
+const iconBtnPrimary = { background: "var(--accent)", color: "var(--accent-fg)", border: "none", borderRadius: 9, width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" };
 const navBtn = { background: "var(--panel2)", color: "var(--text)", border: `1px solid var(--border)`, borderRadius: 9, width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" };
 const qtyBtn = { background: "var(--panel2)", color: "var(--text)", border: `1px solid var(--border)`, borderRadius: 6, width: 22, height: 22, fontSize: 15, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontFamily: font };
