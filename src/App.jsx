@@ -600,7 +600,7 @@ function CardPicker({ onClose, onAdd, isMobile }) {
     <Overlay onClose={onClose}>
       <div style={{
         width: isMobile ? "100%" : 620, maxWidth: "100vw",
-        height: isMobile ? "100vh" : 600, maxHeight: isMobile ? "100vh" : "88vh",
+        height: isMobile ? "100dvh" : 600, maxHeight: isMobile ? "100dvh" : "88vh",
         background: "var(--panel)", border: isMobile ? "none" : `1px solid var(--border)`,
         borderRadius: isMobile ? 0 : 14, display: "flex", flexDirection: "column", overflow: "hidden"
       }} onClick={(e) => e.stopPropagation()}>
@@ -616,7 +616,7 @@ function CardPicker({ onClose, onAdd, isMobile }) {
         </div>
 
         <div style={{ display: "flex", flex: 1, minHeight: 0, flexDirection: isMobile ? "column" : "row" }}>
-          <div className="ygo-scroll" style={{ flex: 1, overflowY: "auto", padding: 14, borderRight: isMobile ? "none" : `1px solid var(--border)`, borderBottom: isMobile ? `1px solid var(--border)` : "none", minHeight: isMobile ? "40vh" : "auto" }}>
+          <div className="ygo-scroll" style={{ flex: 1, overflowY: "auto", padding: 14, borderRight: isMobile ? "none" : `1px solid var(--border)`, minHeight: 0 }}>
             {loading && <Center><Loader2 size={20} style={{ animation: "spin 1s linear infinite" }} /></Center>}
             {!loading && empty && <Center>No matches.</Center>}
             {!loading && !q && <Center>Start typing to search.</Center>}
@@ -629,28 +629,59 @@ function CardPicker({ onClose, onAdd, isMobile }) {
               ))}
             </div>
           </div>
-          <div style={{ width: isMobile ? "100%" : 230, display: "flex", flexDirection: "column", maxHeight: isMobile ? "45vh" : "auto" }}>
-            <div style={{ padding: "10px 14px 8px", fontSize: 13, color: "var(--sub)", fontWeight: 700, borderBottom: `1px solid var(--border)` }}>Selected · {total} {total === 1 ? "copy" : "copies"}</div>
-            <div className="ygo-scroll" style={{ flex: 1, overflowY: "auto", padding: 8 }}>
-              {!basket.length && <div style={{ color: "var(--sub)", fontSize: 13, textAlign: "center", padding: "20px 8px", lineHeight: 1.5 }}>Tap cards to add. Use −/+ for copies.</div>}
-              {basket.map(({ card, qty }) => (
-                <div key={card.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 4px", borderBottom: `1px solid var(--border)` }}>
-                  <div style={{ width: 30, height: 44, borderRadius: 3, overflow: "hidden", flex: "0 0 auto" }}><CardFace card={card} /></div>
-                  <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{card.name}</div></div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <button className="ygo-btn" onClick={() => setQty(card, qty - 1)} style={qtyBtn}>−</button>
-                    <span style={{ width: 18, textAlign: "center", fontSize: 13, fontWeight: 700 }}>{qty}</span>
-                    <button className="ygo-btn" onClick={() => setQty(card, qty + 1)} style={qtyBtn}>+</button>
+
+          {/* Basket: side panel on desktop, pinned bottom on mobile.
+              The Add-to-place button is OUTSIDE the inner scroll so it can
+              never be hidden by overflow, and respects iOS safe-area inset. */}
+          {isMobile ? (
+            <div style={{ borderTop: `1px solid var(--border)`, background: "var(--panel)", flex: "0 0 auto", display: "flex", flexDirection: "column", maxHeight: "38vh" }}>
+              <div style={{ padding: "8px 14px", fontSize: 12, color: "var(--sub)", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: basket.length ? `1px solid var(--border)` : "none" }}>
+                <span>Selected · {total} {total === 1 ? "copy" : "copies"}</span>
+                {basket.length > 0 && <button className="ygo-btn" onClick={() => setBasket([])} style={{ background: "transparent", border: "none", color: "var(--sub)", fontSize: 12, padding: 2, cursor: "pointer" }}>Clear</button>}
+              </div>
+              <div className="ygo-scroll" style={{ overflowY: "auto", padding: basket.length ? 6 : 0, flex: "1 1 auto", minHeight: 0 }}>
+                {basket.map(({ card, qty }) => (
+                  <div key={card.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderBottom: `1px solid var(--border)` }}>
+                    <div style={{ width: 26, height: 38, borderRadius: 3, overflow: "hidden", flex: "0 0 auto" }}><CardFace card={card} /></div>
+                    <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{card.name}</div></div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <button className="ygo-btn" onClick={() => setQty(card, qty - 1)} style={qtyBtnLg}>−</button>
+                      <span style={{ width: 20, textAlign: "center", fontSize: 14, fontWeight: 700 }}>{qty}</span>
+                      <button className="ygo-btn" onClick={() => setQty(card, qty + 1)} style={qtyBtnLg}>+</button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+              <div style={{ padding: "10px 12px calc(10px + env(safe-area-inset-bottom)) 12px", borderTop: `1px solid var(--border)`, background: "var(--panel)", flex: "0 0 auto" }}>
+                <button className="ygo-btn" disabled={!total} onClick={confirm} style={{ ...primaryBtn, width: "100%", opacity: total ? 1 : 0.4, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "12px 18px" }}>
+                  <Copy size={16} /> Add {total || ""} to place
+                </button>
+              </div>
             </div>
-            <div style={{ padding: 10, borderTop: `1px solid var(--border)` }}>
-              <button className="ygo-btn" disabled={!total} onClick={confirm} style={{ ...primaryBtn, width: "100%", opacity: total ? 1 : 0.4, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                <Copy size={15} /> Add {total || ""} to place
-              </button>
+          ) : (
+            <div style={{ width: 230, display: "flex", flexDirection: "column" }}>
+              <div style={{ padding: "10px 14px 8px", fontSize: 13, color: "var(--sub)", fontWeight: 700, borderBottom: `1px solid var(--border)` }}>Selected · {total} {total === 1 ? "copy" : "copies"}</div>
+              <div className="ygo-scroll" style={{ flex: 1, overflowY: "auto", padding: 8, minHeight: 0 }}>
+                {!basket.length && <div style={{ color: "var(--sub)", fontSize: 13, textAlign: "center", padding: "20px 8px", lineHeight: 1.5 }}>Click cards to add. Use −/+ for copies.</div>}
+                {basket.map(({ card, qty }) => (
+                  <div key={card.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 4px", borderBottom: `1px solid var(--border)` }}>
+                    <div style={{ width: 30, height: 44, borderRadius: 3, overflow: "hidden", flex: "0 0 auto" }}><CardFace card={card} /></div>
+                    <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{card.name}</div></div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                      <button className="ygo-btn" onClick={() => setQty(card, qty - 1)} style={qtyBtn}>−</button>
+                      <span style={{ width: 18, textAlign: "center", fontSize: 13, fontWeight: 700 }}>{qty}</span>
+                      <button className="ygo-btn" onClick={() => setQty(card, qty + 1)} style={qtyBtn}>+</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ padding: 10, borderTop: `1px solid var(--border)`, flex: "0 0 auto" }}>
+                <button className="ygo-btn" disabled={!total} onClick={confirm} style={{ ...primaryBtn, width: "100%", opacity: total ? 1 : 0.4, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                  <Copy size={15} /> Add {total || ""} to place
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </Overlay>
@@ -793,7 +824,7 @@ const Label = ({ children }) => <div style={{ fontSize: 12.5, color: "var(--sub)
 const Center = ({ children }) => <div style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--sub)", fontSize: 14, textAlign: "center", padding: "0 20px", lineHeight: 1.5 }}>{children}</div>;
 const Row = ({ children }) => <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>{children}</div>;
 const modalBox = (w, isMobile) => isMobile
-  ? { width: "100%", maxWidth: "100vw", height: "100vh", maxHeight: "100vh", background: "var(--panel)", borderRadius: 0, padding: 22, overflow: "auto" }
+  ? { width: "100%", maxWidth: "100vw", height: "100dvh", maxHeight: "100dvh", background: "var(--panel)", borderRadius: 0, padding: "22px 22px calc(22px + env(safe-area-inset-bottom)) 22px", overflow: "auto", boxSizing: "border-box" }
   : { width: w, maxWidth: "94vw", background: "var(--panel)", border: `1px solid var(--border)`, borderRadius: 14, padding: 26 };
 const modalH = { margin: "0 0 18px", fontSize: 20, fontWeight: 600 };
 const inputStyle = { width: "100%", boxSizing: "border-box", background: "var(--panel2)", border: `1px solid var(--border)`, borderRadius: 9, padding: "10px 12px", color: "var(--text)", fontSize: 14, fontFamily: font, marginBottom: 18, outline: "none" };
@@ -803,3 +834,4 @@ const iconBtn = { background: "var(--panel2)", color: "var(--text)", border: `1p
 const iconBtnPrimary = { background: "var(--accent)", color: "var(--accent-fg)", border: "none", borderRadius: 9, width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" };
 const navBtn = { background: "var(--panel2)", color: "var(--text)", border: `1px solid var(--border)`, borderRadius: 9, width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" };
 const qtyBtn = { background: "var(--panel2)", color: "var(--text)", border: `1px solid var(--border)`, borderRadius: 6, width: 22, height: 22, fontSize: 15, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontFamily: font };
+const qtyBtnLg = { background: "var(--panel2)", color: "var(--text)", border: `1px solid var(--border)`, borderRadius: 6, width: 30, height: 30, fontSize: 17, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontFamily: font };
