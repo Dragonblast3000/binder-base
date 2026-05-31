@@ -29,6 +29,14 @@ export default defineConfig({
         // App shell precaching limited to standard assets; cards.json is handled at runtime.
         globPatterns: ["**/*.{js,css,html,svg,ico}"],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+        // Activate new versions immediately instead of waiting for all tabs
+        // to close — otherwise users see one-deploy-old code until they
+        // manually cycle the tab.
+        skipWaiting: true,
+        clientsClaim: true,
+        // Don't let the SW serve a cached index.html that points at a JS
+        // bundle that's already been deleted from the server.
+        cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
             // Card art from YGOPRODeck — cache after first view, serve stale fast.
