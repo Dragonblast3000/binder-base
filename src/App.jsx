@@ -57,6 +57,38 @@ async function searchCards(term) {
 const imgUrl = (id) => `https://images.ygoprodeck.com/images/cards_small/${id}.jpg`;
 
 /* ════════════════════════════════════════════════════════════════════
+   RARITIES — 17 print rarities, ordered roughly from common to rarest.
+   The order doubles as the "sort by rarity" priority (common first when
+   ascending, rarest first when descending).
+   Each rarity carries a short code (for the badge) and a colour.
+   ════════════════════════════════════════════════════════════════════ */
+const RARITIES = [
+  { id: "C",    name: "Common",                       short: "C",   color: "#a8a8a8" },
+  { id: "R",    name: "Rare",                         short: "R",   color: "#cfcfcf" },
+  { id: "SR",   name: "Super Rare",                   short: "SR",  color: "#7ec1ff" },
+  { id: "UR",   name: "Ultra Rare",                   short: "UR",  color: "#ffcf3d" },
+  { id: "ScR",  name: "Secret Rare",                  short: "ScR", color: "#c084fc" },
+  { id: "UtR",  name: "Ultimate Rare",                short: "UtR", color: "#5ec27a" },
+  { id: "GR",   name: "Ghost Rare",                   short: "GR",  color: "#e5e7eb" },
+  { id: "StR",  name: "Starlight Rare",               short: "StR", color: "#a78bfa" },
+  { id: "CR",   name: "Collector's Rare",             short: "CR",  color: "#f59e0b" },
+  { id: "QCR",  name: "Quarter Century Secret Rare",  short: "QCR", color: "#fbbf24" },
+  { id: "PScR", name: "Prismatic Secret Rare",        short: "PSc", color: "#ec4899" },
+  { id: "PlSR", name: "Platinum Secret Rare",         short: "Pl",  color: "#cbd5e1" },
+  { id: "GdR",  name: "Gold Rare",                    short: "Gd",  color: "#eab308" },
+  { id: "PGR",  name: "Premium Gold Rare",            short: "PGd", color: "#facc15" },
+  { id: "MR",   name: "Mosaic Rare",                  short: "Mos", color: "#94a3b8" },
+  { id: "ShR",  name: "Shatterfoil Rare",             short: "Sh",  color: "#60a5fa" },
+  { id: "SfR",  name: "Starfoil Rare",                short: "Sf",  color: "#fde68a" },
+];
+const RARITY_BY_ID = Object.fromEntries(RARITIES.map((r) => [r.id, r]));
+const rarityIndex = (id) => RARITIES.findIndex((r) => r.id === id);
+
+// A card is a pendulum if its frameType includes "pendulum" — e.g. pendulum_effect,
+// pendulum_normal, pendulum_effect_pendulum, etc.
+const isPendulum = (card) => /pendulum/i.test(card.frameType || "");
+
+/* ════════════════════════════════════════════════════════════════════
    SUPPORT LINK — change KOFI_URL if you ever move platforms.
    ════════════════════════════════════════════════════════════════════ */
 const KOFI_URL = "https://ko-fi.com/binderbase";
@@ -103,6 +135,11 @@ function subRank(card, order) {
 }
 const RULES = {
   typeBucket:   { label: "Type (Monster → Spell → Trap)", cmp: (a, b) => ({ monster: 0, spell: 1, trap: 2 }[categoryOf(a)] - { monster: 0, spell: 1, trap: 2 }[categoryOf(b)]) },
+  pendulumSplit:{ label: "Pendulums separate from non-Pendulums", cmp: (a, b) => {
+                    // Only meaningful for monsters; spells/traps return 0 so this rule is a no-op for them.
+                    if (categoryOf(a) !== "monster" || categoryOf(b) !== "monster") return 0;
+                    return (isPendulum(b) ? 1 : 0) - (isPendulum(a) ? 1 : 0); // pendulums first
+                  } },
   archetype:    { label: "Group same archetype",          cmp: (a, b) => (a.archetype || "~" + a.name).localeCompare(b.archetype || "~" + b.name) },
   level:        { label: "Monster level (high → low)",     cmp: (a, b) => (b.level || -1) - (a.level || -1) },
   atk:          { label: "ATK (high → low)",               cmp: (a, b) => (b.atk || -1) - (a.atk || -1) },
@@ -114,6 +151,12 @@ const RULES = {
                     if (ca === "spell") return subRank(a, SPELL_ORDER) - subRank(b, SPELL_ORDER);
                     if (ca === "trap") return subRank(a, TRAP_ORDER) - subRank(b, TRAP_ORDER);
                     return 0;
+                  } },
+  rarity:       { label: "Rarity (rarest → common)",       cmp: (a, b) => {
+                    // Higher rarity-index sorts first (rarer first). Cards without rarity get -1.
+                    const ai = a.rarity ? rarityIndex(a.rarity) : -1;
+                    const bi = b.rarity ? rarityIndex(b.rarity) : -1;
+                    return bi - ai;
                   } },
   name:         { label: "Name (A → Z)",                   cmp: (a, b) => (a.name || "").localeCompare(b.name || "") },
 };
@@ -442,6 +485,7 @@ function BinderView({ binder, onBack, onUpdate, isMobile, theme, onToggleTheme }
   const [showOrganise, setShowOrganise] = useState(false);
   const [dragFrom, setDragFrom] = useState(null);   // slot index being dragged
   const [dragOver, setDragOver] = useState(null);   // slot index hovered
+  const [raritySlot, setRaritySlot] = useState(null); // slot whose rarity is being edited
 
   const layout = LAYOUTS.find((l) => l.id === binder.layoutId) || LAYOUTS[0];
   const perPage = layout.cols * layout.rows;
@@ -461,6 +505,10 @@ function BinderView({ binder, onBack, onUpdate, isMobile, theme, onToggleTheme }
 
   const placeFromTray = (slot) => {
     if (!tray.length) return;
+    // Bug fix: refuse to overwrite a filled slot during placement. The user
+    // must clear it first with the X. Prevents accidental double-clicks
+    // burning tray cards into the same slot.
+    if ((binder.pages[pageIdx] || [])[slot]) return;
     const [head, ...rest] = tray;
     setCard(slot, head); setTray(rest);
   };
@@ -469,6 +517,15 @@ function BinderView({ binder, onBack, onUpdate, isMobile, theme, onToggleTheme }
   const swapSlots = (from, to) => {
     if (from === to) return;
     writePage((p) => { const n = [...p]; [n[from], n[to]] = [n[to], n[from]]; return n; });
+  };
+
+  // Set or clear the rarity of the card in a slot.
+  const setRarity = (slot, rarityId) => {
+    writePage((p) => p.map((c, j) => {
+      if (j !== slot || !c) return c;
+      if (!rarityId) { const { rarity, ...rest } = c; return rest; }
+      return { ...c, rarity: rarityId };
+    }));
   };
 
   const runOrganise = (ruleIds) => {
@@ -558,6 +615,7 @@ function BinderView({ binder, onBack, onUpdate, isMobile, theme, onToggleTheme }
           {Array.from({ length: perPage }).map((_, slot) => {
             const card = page[slot];
             const isDragOver = dragOver === slot && dragFrom !== null && dragFrom !== slot;
+            const rarity = card?.rarity ? RARITY_BY_ID[card.rarity] : null;
             return (
               <div
                 key={slot}
@@ -568,18 +626,36 @@ function BinderView({ binder, onBack, onUpdate, isMobile, theme, onToggleTheme }
                 onDragOver={(e) => { if (dragFrom !== null && dragFrom !== slot) { e.preventDefault(); setDragOver(slot); } }}
                 onDragLeave={() => { if (dragOver === slot) setDragOver(null); }}
                 onDrop={(e) => { e.preventDefault(); if (dragFrom !== null && dragFrom !== slot) swapSlots(dragFrom, slot); setDragFrom(null); setDragOver(null); }}
-                onClick={() => { if (armed) placeFromTray(slot); else if (!card) setPicker(true); }}
+                onClick={() => {
+                  if (armed) { placeFromTray(slot); return; }
+                  if (!card) { setPicker(true); return; }
+                  // Filled slot, not armed → open rarity editor for this card.
+                  setRaritySlot(slot);
+                }}
+                title={card ? (rarity ? `${card.name} · ${rarity.name} (tap to change)` : `${card.name} (tap to set rarity)`) : undefined}
                 style={{
                   position: "relative", aspectRatio: "59/86", borderRadius: 9,
-                  cursor: card ? (armed ? "pointer" : "grab") : "pointer",
+                  cursor: card ? (armed ? "default" : "pointer") : "pointer",
                   overflow: "hidden",
                   background: card ? "transparent" : "var(--panel2)",
                   border: `1.5px ${card ? "solid" : "dashed"} ${card ? "var(--accent)" : armed ? "var(--accent)" : "var(--border)"}`,
                   display: "flex", alignItems: "center", justifyContent: "center",
+                  // Visual cue for armed-and-filled: dim the slot, so user sees it's not a valid target.
+                  opacity: armed && card ? 0.5 : 1,
                 }}>
                 {card ? (
                   <>
                     <CardFace card={card} />
+                    {rarity && (
+                      <div title={rarity.name} style={{
+                        position: "absolute", bottom: 4, left: 4,
+                        background: rarity.color, color: "#1a1408",
+                        fontWeight: 800, fontSize: "min(2.5vw, 10px)",
+                        padding: "2px 5px", borderRadius: 4,
+                        boxShadow: "0 1px 3px rgba(0,0,0,.4)",
+                        pointerEvents: "none", letterSpacing: 0.3,
+                      }}>{rarity.short}</div>
+                    )}
                     <button className="ygo-btn" onClick={(e) => { e.stopPropagation(); setCard(slot, null); }} style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,.65)", border: "none", color: "#fff", borderRadius: 6, width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center" }}><X size={13} /></button>
                   </>
                 ) : (
@@ -593,7 +669,7 @@ function BinderView({ binder, onBack, onUpdate, isMobile, theme, onToggleTheme }
 
       {!isMobile && (
         <div style={{ textAlign: "center", color: "var(--sub)", fontSize: 12, paddingBottom: 16 }}>
-          Drag cards to reorder · click empty slot to add
+          Drag cards to reorder · click empty slot to add · tap a card to set rarity
         </div>
       )}
 
@@ -601,6 +677,11 @@ function BinderView({ binder, onBack, onUpdate, isMobile, theme, onToggleTheme }
       {showSettings && <SettingsModal isMobile={isMobile} binder={binder} layout={layout} onClose={() => setShowSettings(false)} onAddPage={addPage} onRemovePage={removePage} onRename={(n) => onUpdate({ ...binder, name: n })} onExport={() => exportBinder(binder)} />}
       {showPrint && <PrintModal isMobile={isMobile} binder={binder} layout={layout} onClose={() => setShowPrint(false)} />}
       {showOrganise && <OrganiseModal isMobile={isMobile} initialRules={rules} count={binder.pages.flat().filter(Boolean).length + tray.length} onClose={() => setShowOrganise(false)} onRun={runOrganise} />}
+      {raritySlot !== null && page[raritySlot] && (
+        <RarityModal isMobile={isMobile} card={page[raritySlot]}
+          onClose={() => setRaritySlot(null)}
+          onPick={(rid) => { setRarity(raritySlot, rid); setRaritySlot(null); }} />
+      )}
     </div>
   );
 }
@@ -784,6 +865,52 @@ function OrganiseModal({ initialRules, count, onClose, onRun, isMobile }) {
   );
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   RARITY MODAL — grid of every rarity, plus a "no rarity" option.
+   Tapping a rarity assigns and closes. The current rarity is highlighted.
+   ═══════════════════════════════════════════════════════════════════ */
+function RarityModal({ card, onClose, onPick, isMobile }) {
+  const current = card.rarity || null;
+  return (
+    <Overlay onClose={onClose}>
+      <div style={modalBox(460, isMobile)} onClick={(e) => e.stopPropagation()}>
+        <h2 style={{ ...modalH, marginBottom: 6 }}>Set rarity</h2>
+        <p style={{ color: "var(--sub)", fontSize: 13, marginBottom: 18, lineHeight: 1.5 }}>
+          For <b style={{ color: "var(--text)" }}>{card.name}</b>. Tap a rarity to assign it; choose <i>None</i> to clear.
+        </p>
+
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(3,1fr)", gap: 8, marginBottom: 14 }}>
+          <button className="ygo-btn" onClick={() => onPick(null)}
+            style={{
+              padding: "10px 8px", borderRadius: 9, fontFamily: font, fontSize: 12.5, fontWeight: 600,
+              background: !current ? "var(--accent)" : "var(--panel2)",
+              color: !current ? "var(--accent-fg)" : "var(--text)",
+              border: `1px solid ${!current ? "var(--accent)" : "var(--border)"}`,
+              display: "flex", alignItems: "center", gap: 8, textAlign: "left",
+            }}>
+            <span style={{ width: 22, height: 22, borderRadius: 4, background: "var(--panel)", border: `1px dashed var(--border)`, flex: "0 0 auto" }} />
+            <span>None</span>
+          </button>
+          {RARITIES.map((r) => (
+            <button key={r.id} className="ygo-btn" onClick={() => onPick(r.id)}
+              style={{
+                padding: "10px 8px", borderRadius: 9, fontFamily: font, fontSize: 12.5, fontWeight: 600,
+                background: current === r.id ? "var(--accent)" : "var(--panel2)",
+                color: current === r.id ? "var(--accent-fg)" : "var(--text)",
+                border: `1px solid ${current === r.id ? "var(--accent)" : "var(--border)"}`,
+                display: "flex", alignItems: "center", gap: 8, textAlign: "left",
+              }}>
+              <span style={{ width: 22, height: 22, borderRadius: 4, background: r.color, color: "#1a1408", fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>{r.short}</span>
+              <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</span>
+            </button>
+          ))}
+        </div>
+        <Row><button className="ygo-btn" onClick={onClose} style={ghostBtn}>Close</button></Row>
+      </div>
+    </Overlay>
+  );
+}
+
 /* ═══════════════════════════════════════════════════════════════════ */
 function SettingsModal({ binder, layout, onClose, onAddPage, onRemovePage, onRename, onExport, isMobile }) {
   const [name, setName] = useState(binder.name);
@@ -821,10 +948,13 @@ function PrintModal({ binder, layout, onClose, isMobile }) {
     if (!win) { alert("Please allow pop-ups to print."); return; }
     const cell = (card) => {
       const inner = mode === "art" && card ? `<img src="${imgUrl(card.id)}" onerror="this.parentNode.classList.add('ph');this.parentNode.innerHTML='<span>'+this.alt+'</span>'" alt="${(card.name||'').replace(/"/g,'&quot;')}" />` : `<div class="lbl">${card ? card.name.replace(/</g, "&lt;") : ""}</div>`;
-      return `<div class="card">${inner}</div>`;
+      // Add a rarity badge for cards that have one — printed in the bottom-left corner so it survives cutting.
+      const rarity = card?.rarity ? RARITY_BY_ID[card.rarity] : null;
+      const badge = rarity ? `<div class="rar" style="background:${rarity.color}">${rarity.short}</div>` : "";
+      return `<div class="card">${inner}${badge}</div>`;
     };
     const sheets = pages.map((p, i) => `<section class="sheet"><div class="head">${binder.name} — page ${i + 1}</div><div class="grid" style="grid-template-columns:repeat(${layout.cols},${W}mm)">${p.map(cell).join("")}</div></section>`).join("");
-    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${binder.name}</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;background:#fff;color:#000;padding:8mm}.sheet{page-break-after:always;margin-bottom:10mm}.head{font-size:11pt;margin-bottom:4mm;color:#444}.grid{display:grid;gap:0}.card{width:${W}mm;height:${H}mm;border:.5pt dashed #555;display:flex;align-items:center;justify-content:center;overflow:hidden}.card img{width:100%;height:100%;object-fit:cover}.card.ph{padding:2mm}.card.ph span{font-size:7pt;text-align:center;word-break:break-word}.lbl{font-size:7pt;text-align:center;padding:2mm;color:#333;word-break:break-word}@media print{@page{margin:8mm}}</style></head><body>${sheets}<scr`+`ipt>window.onload=function(){setTimeout(function(){window.print()},500)}</scr`+`ipt></body></html>`);
+    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${binder.name}</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;background:#fff;color:#000;padding:8mm}.sheet{page-break-after:always;margin-bottom:10mm}.head{font-size:11pt;margin-bottom:4mm;color:#444}.grid{display:grid;gap:0}.card{position:relative;width:${W}mm;height:${H}mm;border:.5pt dashed #555;display:flex;align-items:center;justify-content:center;overflow:hidden}.card img{width:100%;height:100%;object-fit:cover}.card.ph{padding:2mm}.card.ph span{font-size:7pt;text-align:center;word-break:break-word}.lbl{font-size:7pt;text-align:center;padding:2mm;color:#333;word-break:break-word}.rar{position:absolute;bottom:2mm;left:2mm;font-size:7pt;font-weight:800;padding:1mm 2mm;border-radius:1mm;color:#1a1408;letter-spacing:.3pt}@media print{@page{margin:8mm}}</style></head><body>${sheets}<scr`+`ipt>window.onload=function(){setTimeout(function(){window.print()},500)}</scr`+`ipt></body></html>`);
     win.document.close();
   };
   return (
